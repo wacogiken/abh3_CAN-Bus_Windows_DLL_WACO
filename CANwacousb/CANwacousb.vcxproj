@@ -113,8 +113,12 @@
     <ClCompile Include="WacoCanUsb.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="..\README.md" />
     <None Include="CANwacousb.def" />
     <None Include="SafeRelease.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\img\WACOusbcan.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

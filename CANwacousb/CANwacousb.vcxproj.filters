@@ -83,5 +83,11 @@
     <None Include="SafeRelease.inl">
       <Filter>ヘッダー ファイル</Filter>
     </None>
+    <None Include="..\README.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\img\WACOusbcan.png">
+      <Filter>リソース ファイル</Filter>
+    </Image>
   </ItemGroup>
 </Project>
