@@ -301,7 +301,13 @@ int32_t CAbh3::abh3_can_init(uint8_t nTargetID,pCANABH3_RESULT pPtr)
 //
 int32_t CAbh3::abh3_can_port_init()
 	{
-	int32_t nResult = OpenInterface();
+	int32_t nResult = -1;
+	//通信排他制御用のセマフォを取得
+	if(Lock() == 0)
+		{
+		nResult = OpenInterface();
+		Unlock();
+		}
 	return(nResult);
 	}
 
@@ -415,51 +421,6 @@ int32_t CAbh3::abh3_can_opBitSet(uint8_t nTargetID,int8_t num,int8_t data,pCANAB
 			pPtr
 			)
 		);
-
-	////戻り値
-	//int32_t nResult = -1;
-
-	////通信排他制御用のセマフォを取得
-	//if(Lock() == 0)
-	//	{
-	//	//インターフェースを開いている？
-	//	if(IsOpenInterface())
-	//		{
-	//		//接続先別の最終送信データ領域を取得
-	//		pCANABH3_LASTSEND pLastsend = GetLastSendData(nTargetID);
-
-	//		//設定値を格納
-	//		if(data)
-	//			pLastsend->nInputBit |= (1 << num);
-	//		else
-	//			pLastsend->nInputBit &= ~(1 << num);
-
-	//		//シングルパケット(DP0)を構築
-	//		uint8_t* pPacket = CCan1939::CreateSGL0(
-	//			 pLastsend->nOrderAY
-	//			,pLastsend->nOrderBX
-	//			,pLastsend->nInputBit
-	//			);
-
-	//		//送信先IDを作成
-	//		uint32_t nSendID = CreateSinglePacketID(nTargetID);
-
-	//		//送信
-	//		nResult = CanSend8(nSendID,pPacket,9);
-
-	//		//受信バッファ指定有りでここ迄エラー無しならシングルパケットDP0を受信
-	//		if(pPtr && (nResult == 0))
-	//			nResult = abh3_can_recv(nTargetID,pPtr,PACKETTYPE::SINGLE_PACKET);
-
-	//		//開放
-	//		CCan1939::FreeBuffer(pPacket);
-	//		}
-	//	//通信排他制御用のセマフォを開放
-	//	Unlock();
-	//	}
-
-	////完了
-	//return(nResult);
 	}
 
 //指令と入力の送信（同時）
@@ -730,7 +691,13 @@ int32_t CAbh3::abh3_can_flush()
 //回線を閉じる
 int32_t CAbh3::abh3_can_finish()
 	{
-	CloseInterface();
+	//通信排他制御用のセマフォを取得
+	if(Lock() == 0)
+		{
+		CloseInterface();
+		Unlock();
+		}
+
 	return(0);
 	}
 
