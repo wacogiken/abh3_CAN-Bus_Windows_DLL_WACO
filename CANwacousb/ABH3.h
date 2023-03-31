@@ -117,6 +117,13 @@ public:
 		return(nResult);
 		}
 
+	//送受信カウンタを取得します
+	uint32_t GetTransmitCounter(uint8_t nRecv)
+		{
+		if(IsValidDevice())
+			return(m_pVar->pDeviceClass->GetTransmitCounter(nRecv));
+		return(0);
+		}
 
 	//CANバスにエラーが発生しているか調べます
 	uint32_t GetCANerror(void);

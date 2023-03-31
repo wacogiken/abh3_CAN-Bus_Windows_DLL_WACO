@@ -244,8 +244,8 @@ int32_t CWacoCanUsb::OnOpenInterface(int32_t nDeviceNum)
 		m_timeout.ReadIntervalTimeout			= 0;
 		m_timeout.ReadTotalTimeoutMultiplier	= 1;
 		m_timeout.ReadTotalTimeoutConstant		= 0;
-		m_timeout.WriteTotalTimeoutMultiplier	= 0;
-		m_timeout.WriteTotalTimeoutConstant		= 0;
+		m_timeout.WriteTotalTimeoutMultiplier	= 100;
+		m_timeout.WriteTotalTimeoutConstant		= 1000;
 		if(SetCommTimeouts(m_hComm,&m_timeout) == 0)
 			{
 			nResult = -3;
@@ -302,6 +302,9 @@ int32_t CWacoCanUsb::OnOpenInterface(int32_t nDeviceNum)
 
 	//受信データ排他制御用セマフォ
 	m_hSema = ::CreateSemaphore(NULL,1,1,NULL);
+
+	//送受信カウンタの初期化
+	ClearTransmitCounter();
 
 	//受信スレッド開始
 	m_hReadThread = (HANDLE)_beginthreadex(NULL,0,CWacoCanUsb::ReceiveThread,this,0,&m_nReadThreadUid);
@@ -421,8 +424,8 @@ int32_t CWacoCanUsb::OnCanSend(uint32_t nCanID,uint8_t* pData8,uint8_t nLength)
 		}
 	else
 		{
-		//カウンタの値に送信サイズ(データ長)を加算
-		AddCounter((uint32_t)nLength);
+		//バス占有カウンタと送信カウンタに加算
+		AddCounter(false,nCanID,pData8,(uint32_t)nLength);
 		}
 
 	//送信用一時バッファ開放
@@ -662,8 +665,8 @@ unsigned __stdcall CWacoCanUsb::ReceiveThread(void* Param)
 			//
 			if(StockPacket(&canMsg,pTmpRecv,nStockPt) == 0)
 				{
-				//カウンタの値に受信サイズ(dlc)を加算
-				pClass->AddCounter((uint32_t)canMsg.nDLC);
+				//バス占有カウンタと受信カウンタに加算
+				pClass->AddCounter(true,canMsg.nCANid,canMsg.nRaw8,canMsg.nDLC);
 
 				//次ステージ
 				nStage = 1300;

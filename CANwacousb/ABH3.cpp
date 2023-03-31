@@ -168,14 +168,15 @@ int32_t CAbh3::OpenInterface()
 //開いたインターフェースを閉じる
 void CAbh3::CloseInterface()
 	{
+	//開いているCANインターフェース情報を解除
+	m_pVar->nOpenDevice = 0;
+
 	//デバイス登録有り？
 	if(IsValidDevice())
 		{
 		//CANインターフェースを閉じる
 		m_pVar->pDeviceClass->OnCloseInterface();
 		}
-	//開いているCANインターフェース情報を解除
-	m_pVar->nOpenDevice = 0;
 	}
 
 //現在開いているインターフェース番号を取得
@@ -804,8 +805,9 @@ int32_t CAbh3::CanSend8(uint32_t nSendID,uint8_t* pSendData,uint8_t nLength)
 
 	//デバイスクラスが登録済みなら送信
 	if(m_pVar->pDeviceClass)
+		{
 		nResult = m_pVar->pDeviceClass->OnCanSend(nSendID,pSendData,nLength);
-
+		}
 	//完了
 	return(nResult);
 	}
