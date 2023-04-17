@@ -105,6 +105,7 @@ public:
 			}
 		return(nResult);
 		}	
+
 	//1秒間に送受信したデータ量を取得します
 	uint32_t GetCounter(void)
 		{
@@ -120,8 +121,11 @@ public:
 	//送受信カウンタを取得します
 	uint32_t GetTransmitCounter(uint8_t nRecv)
 		{
-		if(IsValidDevice())
-			return(m_pVar->pDeviceClass->GetTransmitCounter(nRecv));
+		if(m_pVar)
+			{
+			if(IsValidDevice())
+				return(m_pVar->pDeviceClass->GetTransmitCounter(nRecv));
+			}
 		return(0);
 		}
 
@@ -297,7 +301,7 @@ protected:
 	pCANABH3_VAR m_pVar;
 
 	//受信IDから識別に必要な要素を抽出
-	PACKETTYPE recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTargetID,uint8_t& nGroup,uint8_t& nAdrs);
+	PACKETTYPE recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTargetID,uint8_t& nGroup,uint8_t& nAdrs,uint8_t* pRecvData);
 
 	//最終送信データ領域を取得
 	pCANABH3_LASTSEND GetLastSendData(uint8_t nID)

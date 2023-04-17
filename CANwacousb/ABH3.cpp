@@ -38,43 +38,13 @@
 //	ABH3用CAN制御クラス
 //
 //履歴
-//	2020/09/xx	yo0043		1st release
-//	2020/09/29	yo0043		2nd release
-//							送信長を8バイト未満にする必要が有る為、幾つかの関数に送信長を追加
-//							マルチパケットのデフォルト要求数を 0xff -> 0x08 に変更
-//							マルチパケットを途中で中止する場合にABORTを発行する様に修正
-//							（送信に失敗した場合が主な原因の為、ABORTが実際に送信されるかは時の運）
-//	2021/02/15	yo0043		3rd release
-//							コメント追加のみでプログラムに変更無し
-//
-
-/*
-動作原理変更
-
-前からある関数は通常通り動作させるが、受信情報(CANABH3_RESULT構造体)の指定有無で
-受信するか判断する。（NULL指定なら送信のみとなる）
-受信する場合は、abh3_can_recv関数（現在仮設置）の様に、目的のパケットが来る迄、
-連続受信し、受信した物が通信相手から来た物であれば現在の保存値を更新する。
-
-アプリケーションが非同期受信する場合は、この保存値を一定周期で取得し、
-更新された要素（更新フラグが成立している物）の表示を更新して、フラグを解除する。
-（保存値取得は一括だが、フラグ解除は番号を指定して行う）
-
-
-//覚書
-
-//受信バッファのクリア
-ClearRecvBuffer();
-
-
-
-*/
-
-
-
+//	2023/03/31	yo0043		1th release
+//							前のCAbh3クラスから大幅変更の為、別物として扱う
+//							受信バッファを指定しない通信要求は、送信のみ行う
+//							インターフェースのオープンクローズにも排他制御を入れる
 
 #include "pch.h"
-#include <memory.h>		//memset,
+#include <memory.h>
 #include "Abh3.h"
 
 //安全な削除
@@ -302,13 +272,18 @@ int32_t CAbh3::abh3_can_init(uint8_t nTargetID,pCANABH3_RESULT pPtr)
 //
 int32_t CAbh3::abh3_can_port_init()
 	{
-	int32_t nResult = -1;
+	int32_t nResult = 0;
+
 	//通信排他制御用のセマフォを取得
 	if(Lock() == 0)
 		{
 		nResult = OpenInterface();
+		
 		Unlock();
 		}
+	else
+		nResult = -1;
+
 	return(nResult);
 	}
 
@@ -470,8 +445,6 @@ int32_t CAbh3::abh3_can_cmdAndopSet(uint8_t nTargetID,int16_t cmdAY,int16_t cmdB
 
 	//完了
 	return(nResult);
-
-
 	}
 
 
@@ -758,7 +731,7 @@ int32_t CAbh3::abh3_can_recv(uint8_t nTargetID,pCANABH3_RESULT pPtr,PACKETTYPE n
 			uint8_t nPacketTargetID = 0;
 			uint8_t nPacketGroup = 0;
 			uint8_t nPacketAdrs = 0;
-			PACKETTYPE nPacketType = recvid2any(pPtr->nID,nPacketSenderID,nPacketTargetID,nPacketGroup,nPacketAdrs);
+			PACKETTYPE nPacketType = recvid2any(pPtr->nID,nPacketSenderID,nPacketTargetID,nPacketGroup,nPacketAdrs,NULL);
 
 			//判定
 			if(nTargetID == nPacketTargetID)
@@ -808,6 +781,7 @@ int32_t CAbh3::CanSend8(uint32_t nSendID,uint8_t* pSendData,uint8_t nLength)
 		{
 		nResult = m_pVar->pDeviceClass->OnCanSend(nSendID,pSendData,nLength);
 		}
+
 	//完了
 	return(nResult);
 	}
@@ -847,48 +821,9 @@ int32_t CAbh3::CanRecv8(uint32_t* pRecvID,uint8_t* pRecvData)
 	return(nResult);
 	}
 
-////最終送信データ領域をチェック
-//CAbh3::pCANABH3_LASTSEND CAbh3::CheckLastSendData(uint8_t nID)
-//	{
-//	//戻り値
-//	//	最終受信データ格納先へのポインタ
-//
-//	//最終送信データ格納先が未確保？
-//	pCANABH3_LASTSEND pLastsend = m_pVar->lastdata.pSend[nID];
-//	if(pLastsend == NULL)
-//		{
-//		//確保して初期化する
-//		pLastsend = new CANABH3_LASTSEND;
-//		::ZeroMemory(pLastsend,sizeof(CANABH3_LASTSEND));
-//		//格納する
-//		m_pVar->lastdata.pSend[nID] = pLastsend;
-//		}
-//	//
-//	return(pLastsend);
-//	}
-
-////最終受信データ領域をチェック
-//pCANABH3_LASTRECV CAbh3::CheckLastRecvData(uint8_t nID)
-//	{
-//	//戻り値
-//	//	最終受信データ格納先へのポインタ
-//
-//	//最終受信データ格納先が未確保？
-//	pCANABH3_LASTRECV pLastrecv = m_pVar->lastdata.pRecv[nID];
-//	if(pLastrecv == NULL)
-//		{
-//		//確保して初期化する
-//		pLastrecv = new CANABH3_LASTRECV;
-//		::ZeroMemory(pLastrecv,sizeof(CANABH3_LASTRECV));
-//		//格納する
-//		m_pVar->lastdata.pRecv[nID] = pLastrecv;
-//		}
-//	//
-//	return(pLastrecv);
-//	}
 
 //受信IDから識別に必要な要素を抽出
-PACKETTYPE CAbh3::recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTargetID,uint8_t& nGroup,uint8_t& nAdrs)
+PACKETTYPE CAbh3::recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTargetID,uint8_t& nGroup,uint8_t& nAdrs,uint8_t* pRecvData)
 	{
 	//パラメータ
 	//	nCANID		受信したパケットのCANID（送信パケットのは使えないので注意）
@@ -909,13 +844,14 @@ PACKETTYPE CAbh3::recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTarget
 	uint8_t nD1 = uint8_t(nCANID >> 8);		//xxxxXXxx
 	uint8_t nD0 = uint8_t(nCANID);			//xxxxxxXX
 
+
 	//(確定)送信元
 	nSenderID = nD0;
 
 	//ブロードキャストパケットの返答？(xxFFxxxx)
 	if(nD2 == 0xff)
 		{
-		//(確定)種類はブロードキャストパケット
+		//(確定)ブロードキャストパケット
 		nResult = PACKETTYPE::BROADCAST_PACKET;
 		//(確定)グループ番号とアドレス
 		nAdrs = nD1 & 0x07;				//(bit:xxxxxXXX)
@@ -923,24 +859,33 @@ PACKETTYPE CAbh3::recvid2any(uint32_t nCANID,uint8_t& nSenderID,uint8_t& nTarget
 		//受信先は含まれない為、ホストIDを設定する
 		nTargetID = GetHostID();
 		}
-	else
+	//シングルパケットの返答又は要求？(xxEFxxxx)
+	else if(nD2 == GetSinglePacketCode(nSenderID))
 		{
-		//送信元のPDUコードと一致するか？(xxXXxxxx)
-		if(nD2 == GetSinglePacketCode(nSenderID))
+		//(確定)シングルパケット
+		nResult = PACKETTYPE::SINGLE_PACKET;
+		//(確定)受信先
+		nTargetID = nD1;
+		//グループとアドレスは含まれない為、0を設定する
+		nGroup = 0;
+		nAdrs = 0;
+		}
+	//受信データ指定有り？（ブロードキャスト要求を判断する場合は指定必須）
+	else if(pRecvData)
+		{
+		//ブロードキャストパケットの要求？(xxEAxxxx)
+		if(nD2 == GetBroadcastPacketCode(nSenderID))
 			{
-			//(確定)シングルパケット
-			nResult = PACKETTYPE::SINGLE_PACKET;
+			//(確定)ブロードキャストパケット
+			nResult = PACKETTYPE::BROADCAST_PACKET;
+			//(確定)グループ番号とアドレス
+			nAdrs = pRecvData[0] & 0x07;	//下位3bit
+			nGroup = (pRecvData[0] >> 3) & 0x1f;		//上位5bit
 			//(確定)受信先
 			nTargetID = nD1;
-			//グループとアドレスは含まれない為、0を設定する
-			nGroup = 0;
-			nAdrs = 0;
-			}
-		else
-			{
-			//不明なパケット
 			}
 		}
+
 	//
 	return(nResult);
 	}
@@ -960,7 +905,7 @@ void CAbh3::StockLastRecvData(uint32_t nRecvID,uint8_t* pRecvData)
 	uint8_t nTargetID = 0;
 	uint8_t nGroup = 0;
 	uint8_t nAdrs = 0;
-	PACKETTYPE nType = recvid2any(nRecvID,nSenderID,nTargetID,nGroup,nAdrs);
+	PACKETTYPE nType = recvid2any(nRecvID,nSenderID,nTargetID,nGroup,nAdrs,pRecvData);
 
 	//格納先
 	pCANABH3_LASTRECV pLastdata = GetLastRecvData(nSenderID);
@@ -968,6 +913,7 @@ void CAbh3::StockLastRecvData(uint32_t nRecvID,uint8_t* pRecvData)
 	//シングルパケット？
 	if(nType == PACKETTYPE::SINGLE_PACKET)
 		{
+		//格納先にコピー
 		::CopyMemory(&pLastdata->DP0R,pRecvData,8);
 		//更新フラグ
 		pLastdata->update[0].nUpdate = 1;
@@ -975,6 +921,7 @@ void CAbh3::StockLastRecvData(uint32_t nRecvID,uint8_t* pRecvData)
 	//ブロードキャストパケット？
 	else if(nType == PACKETTYPE::BROADCAST_PACKET)
 		{
+		//各アドレスに保存
 		if(nAdrs == 0)
 			::CopyMemory(&pLastdata->BR0,pRecvData,8);
 		else if(nAdrs == 1)
