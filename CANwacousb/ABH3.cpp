@@ -734,20 +734,23 @@ int32_t CAbh3::abh3_can_recv(uint8_t nTargetID,pCANABH3_RESULT pPtr,PACKETTYPE n
 			PACKETTYPE nPacketType = recvid2any(pPtr->nID,nPacketSenderID,nPacketTargetID,nPacketGroup,nPacketAdrs,NULL);
 
 			//判定
-			if(nTargetID == nPacketTargetID)
+
+			//シングルパケット指定？
+			if((nType == PACKETTYPE::SINGLE_PACKET) && (nPacketType == PACKETTYPE::SINGLE_PACKET))
 				{
-				//シングルパケット指定？
-				if((nType == PACKETTYPE::SINGLE_PACKET) && (nPacketType == PACKETTYPE::SINGLE_PACKET))
-					break;
-				else if(nType == PACKETTYPE::BROADCAST_PACKET)
-					{
-					if((nPacketType == PACKETTYPE::BROADCAST_PACKET) && (nAdrs == nPacketAdrs))
-						break;
-					}
+				//発信元が指定した所？
+				if(nTargetID == nPacketSenderID)
+					break;	//該当
 				}
-			else
+			//ブロードキャストパケット指定？
+			else if(nType == PACKETTYPE::BROADCAST_PACKET)
 				{
-				//指定した相手ではない所から発信されたパケットを受信
+				if((nPacketType == PACKETTYPE::BROADCAST_PACKET) && (nAdrs == nPacketAdrs))
+					{
+					//発信元が指定した所？
+					if(nTargetID == nPacketSenderID)
+						break;	//該当
+					}
 				}
 			}
 		else
