@@ -39,6 +39,12 @@ ROS Package for <a href="https://www.wacogiken.co.jp/agv/abh3.html">ABH3</a> Dri
             <th bgcolor="blue"><font color="white">Notice</font></th>
         </tr>
         <tr>
+            <td>1.0.0.18</td>
+            <td>2024/04/08</td>
+            <td>Y.OGAWA</td>
+            <td>7th release<br>Addition of logging functionality.</td>
+        </tr>
+        <tr>
             <td>1.0.0.17</td>
             <td>2024/02/20</td>
             <td>Y.OGAWA</td>

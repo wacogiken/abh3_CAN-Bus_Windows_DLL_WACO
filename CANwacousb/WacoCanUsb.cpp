@@ -64,6 +64,7 @@
 #include "pch.h"
 #include <tchar.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <process.h>
 #include "WacoCanUsb.h"
 #include "EnumComPortEx.h"
@@ -150,14 +151,6 @@ CWacoCanUsb::CWacoCanUsb()
 
 	//受信データ格納用領域の初期化
 	m_pCanMsg = new RSCANMSG[256]();
-
-	//m_pBalObject	= 0;	// bus access object
-	//m_lSocketNo		= 0;	// socket number
-	//m_pCanControl	= 0;	// control interface
-	//m_pCanChn		= 0;	// channel interface
-	//m_hEventReader	= 0;
-	//m_pReader		= 0;
-	//m_pWriter		= 0;
 	}
 
 //デストラクタ
@@ -214,6 +207,10 @@ int32_t CWacoCanUsb::OnOpenInterface(int32_t nDeviceNum)
 	//nDeviceNum
 	//	0	COM1
 
+	//ログファイルを（開いている場合は）閉じる
+	m_log.Close();
+
+	//
 	int32_t nResult = 0;
 	do
 		{
@@ -292,7 +289,8 @@ int32_t CWacoCanUsb::OnOpenInterface(int32_t nDeviceNum)
 		//完了
 		break;
 		} while(false);
-	//
+
+	//エラー有り？
 	if(nResult)
 		{
 		//オープン失敗なのでクローズ処理を呼び出す
@@ -306,9 +304,11 @@ int32_t CWacoCanUsb::OnOpenInterface(int32_t nDeviceNum)
 	//送受信カウンタの初期化
 	ClearTransmitCounter();
 
+	//ログファイルを新規ファイルとして開く（実際に開くかは設定次第）
+	m_log.Open();
+
 	//受信スレッド開始
 	m_hReadThread = (HANDLE)_beginthreadex(NULL,0,CWacoCanUsb::ReceiveThread,this,0,&m_nReadThreadUid);
-
 
 	//処理完了
 	return(0);
@@ -326,6 +326,8 @@ void CWacoCanUsb::OnCloseInterface()
 
 	//todo:CANインターフェースを開いている場合に閉じる処理を実装して下さい
 
+	//ログファイルを閉じる
+	m_log.Close();
 
 	//受信スレッド動作中？
 	if (m_hReadThread)
@@ -408,9 +410,13 @@ int32_t CWacoCanUsb::OnCanSend(uint32_t nCanID,uint8_t* pData8,uint8_t nLength)
 
 	//todo:CANインターフェースに送信する処理を実装して下さい
 
+	//送信データについてのログを保存
+	m_log.Add(false,0,0,nCanID,(char*)pData8,nLength);
+
 	//パケット構築
 	uint32_t nPacketLength = 0;
 	uint8_t* pPacket = CreatePacket(nPacketLength,nCanID,pData8,nLength);
+
 
 	//戻り値
 	int32_t nResult = 0;
@@ -662,9 +668,12 @@ unsigned __stdcall CWacoCanUsb::ReceiveThread(void* Param)
 			{
 			//pTmpRecvには[STX]と[ETX]を含めた受信データが格納されている
 
-			//
+			//デコード
 			if(StockPacket(&canMsg,pTmpRecv,nStockPt) == 0)
 				{
+				//ログ登録
+				pClass->m_log.Add(true,canMsg.nTimeU32,canMsg.nTimeL32,canMsg.nCANid,(char*)canMsg.nRaw8,canMsg.nDLC);
+
 				//バス占有カウンタと受信カウンタに加算
 				pClass->AddCounter(true,canMsg.nCANid,canMsg.nRaw8,canMsg.nDLC);
 
@@ -833,33 +842,57 @@ uint8_t* CWacoCanUsb::CreatePacket(uint32_t& nPacketLength,uint32_t nCanID,uint8
 //パケットチェックと格納
 uint8_t CWacoCanUsb::StockPacket(PRSCANMSG pDst,char* pSrc,uint8_t nSrcLen)
 	{
-	//要素番号[1-2]からフラグ類を抽出し、予定のパケット全体サイズを作成
-	uint8_t nFlag = (uint8_t)hex2num(&pSrc[1],2);
-	uint8_t nExtendID = (nFlag >> 4) & 1;
-	uint8_t nDLC = nFlag & 0x0f;
-	uint8_t nLength = 1 + 2 + 8 + (nDLC * 2) + (2 * 2) + 1;	//max:32
+	//ここに来た時点で、pSrcには [STX] [FLAG] <TIMESTAMP> [CANID] <DATA> [CRC] [ETX] が入っている
+
+	//フラグを抽出
+	uint8_t nFlag = (uint8_t)hex2num(&pSrc[1],2);		//フラグを抽出
+	uint8_t nTimestamp = (nFlag >> 7) & 1;				//bit[7]	タイムスタンプフラグ
+	uint8_t nExtendID = (nFlag >> 4) & 1;				//bit[4]	拡張IDフラグ
+	uint8_t nDLC = nFlag & 0x0f;						//bit[3..0]	<DATA>の長さ（BYTE単位）
+	uint8_t nLength = 1 + 2 + (nTimestamp * 16) + 8 + (nDLC * 2) + 4 + 1;	//構成要素から計算されるパケット長
+
+	//元データの参照位置
+	uint8_t nTIMEpt = 3;								//タイムスタンプ位置 = フラグの後
+	uint8_t nIDpt = nTIMEpt + (nTimestamp * 16);		//CanID位置 = タイムスタンプ(16文字)と同じ位置、又はタイムスタンプの後
+	uint8_t nDATApt = nIDpt + 8;						//データ位置 = CanIDの後
+	uint8_t	nCRCpt = nDATApt + (nDLC * 2);				//CRC位置 = データ位置の後
 
 	//全体サイズと一致しない？
 	if(nSrcLen != nLength)
 		return(1);	//全体サイズと一致しない
 
-
-	//格納:拡張ID
+	//格納:拡張IDフラグ
 	pDst->nExtendID = nExtendID;
 
-	//格納:CANID[3-10]
-	pDst->nCANid = hex2num(&pSrc[3],8);
+	//格納:タイムスタンプ
+	if(nTimestamp)
+		{
+		//タイムスタンプを格納
+		pDst->nTimeU32 = hex2num(&pSrc[nTIMEpt + 0],8);
+		pDst->nTimeL32 = hex2num(&pSrc[nTIMEpt + 8],8);
+		}
+	else
+		{
+		//タイムスタンプ無し
+		pDst->nTimeU32 = 0;
+		pDst->nTimeL32 = 0;
+		}
+
+
+	//格納:CanID
+	pDst->nCANid = hex2num(&pSrc[nIDpt],8);
 
 	//格納:データ長
 	pDst->nDLC = nDLC;
 
-	//格納:DATA[11-X]
+	//格納:データ
 	for(uint8_t nLoop = 0;nLoop < nDLC;nLoop++)
-		pDst->nRaw8[nLoop] = (uint8_t)hex2num(&pSrc[11 + (nLoop * 2)],2);
+		pDst->nRaw8[nLoop] = (uint8_t)hex2num(&pSrc[nDATApt + (nLoop * 2)],2);
 
-	//格納:CRC[X+1 - X+5]
-	pDst->nCRC = hex2num(&pSrc[11 + (nDLC * 2)],4);
+	//格納:CRC
+	pDst->nCRC = hex2num(&pSrc[nCRCpt],4);
 
 	//
 	return(0);
 	}
+

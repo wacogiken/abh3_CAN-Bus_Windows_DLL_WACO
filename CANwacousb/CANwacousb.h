@@ -212,6 +212,18 @@ CANABH3API char* pkflt_to_strA(PACK_FLOAT pkflt,char* str);
 //PACK_FLOATからUNICODE文字列に変換
 CANABH3API wchar_t* pkflt_to_strW(PACK_FLOAT pkflt,wchar_t* str);
 
+//================================================================================
+//ユーザー用関数(ログ系)
+//================================================================================
+
+//ログ機能初期化及びログフォルダ設定
+CANABH3API int32_t canLogInit(uint8_t nUtf16,void* pLogFolder);
+
+//ログ機能制御
+CANABH3API int32_t canLogCtrl(uint8_t nCmd);
+
+
+
 //============================================================
 //リンケージ解除
 //============================================================

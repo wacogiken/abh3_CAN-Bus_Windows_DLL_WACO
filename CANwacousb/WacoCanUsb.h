@@ -43,6 +43,9 @@
 //継承元クラス
 #include "CanIF.h"
 
+//ログ制御用
+#include "Logctrl.h"
+
 //本クラスで使用するデバイス用のインクルード
 
 typedef enum
@@ -117,6 +120,26 @@ public:
 	//受信バッファをクリアする場合に呼び出されます
 	virtual int32_t OnCanRecvClear(void);
 
+	//ログ機能初期化及びログフォルダ設定
+	virtual int32_t canLogInit(uint8_t nUtf16,void* pLogFolder)
+		{
+		//ログを開いている場合は閉じる
+		m_log.Close();
+
+		//ログフォルダ指定をwide文字で保存
+		m_log.Initialize(nUtf16,pLogFolder);
+		//
+		return(0);
+		}
+
+	//ログ機能制御
+	virtual int32_t canLogCtrl(uint8_t nCmd)
+		{
+		//
+		return(m_log.Control(nCmd));
+		}
+
+
 //================================================================================
 //内部用（スレッドから利用為にpublic扱い）
 //================================================================================
@@ -144,13 +167,19 @@ public:
 	typedef struct _RSCANMSG
 		{
 		uint32_t	nCANid;				//CANID
+		uint32_t	nTimeU32;			//Timestamp(上位)、無い場合は0が入る
+		uint32_t	nTimeL32;			//Timestamp(下位)、無い場合は0が入る
 		uint8_t		nExtendID;			//拡張IDフラグの場合は1が入る
 		uint8_t		nDLC;				//データ部の長さ
 		uint16_t	nCRC;				//CRC
 		uint8_t		nRaw8[8];
 		} RSCANMSG,*PRSCANMSG;
 
-	WACOCANUSB_STATUS	m_status;
+	//変数類
+	WACOCANUSB_STATUS	m_status;		//本クラスの変数類
+	CLogctrl		m_log;				//ログ制御クラス
+
+	//本クラス独自の要素
 	HANDLE			m_hSema;			//受信バッファ排他制御用セマフォ
 	HANDLE			m_hReadThread;		//受信スレッドハンドル
 	UINT			m_nReadThreadUid;
@@ -177,7 +206,6 @@ public:
 	//登録されたCANメッセージを1つ取得
 	uint32_t GetCanMsg(PRSCANMSG pMsg);
 
-
 //================================================================================
 //内部用
 //================================================================================
@@ -188,7 +216,6 @@ protected:
 
 	//パケットチェックと格納
 	static uint8_t StockPacket(PRSCANMSG pDst,char* pSrc,uint8_t nSrcLen);
-
 
 public:
 	CWacoCanUsb();

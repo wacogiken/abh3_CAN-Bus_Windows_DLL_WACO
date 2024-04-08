@@ -588,3 +588,19 @@ CANABH3API wchar_t* pkflt_to_strW(PACK_FLOAT pkflt,wchar_t* str)
 	delete [] pTmp;
 	return(str);
 	}
+
+//================================================================================
+//ユーザー用関数(ログ系)
+//================================================================================
+
+//ログ機能初期化及びログフォルダ設定
+CANABH3API int32_t canLogInit(uint8_t nUtf16,void* pLogFolder)
+	{
+	return(g_pAbh3->canLogInit(nUtf16,pLogFolder));
+	}
+
+//ログ機能制御
+CANABH3API int32_t canLogCtrl(uint8_t nCmd)
+	{
+	return(g_pAbh3->canLogCtrl(nCmd));
+	}

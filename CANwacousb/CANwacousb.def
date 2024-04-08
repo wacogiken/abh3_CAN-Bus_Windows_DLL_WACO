@@ -22,7 +22,7 @@ EXPORTS
 	ResetCANerror
 
 	abh3_can_init
-    abh3_can_port_init
+	abh3_can_port_init
 	abh3_can_cmd_init
 	abh3_can_cmdAY
 	abh3_can_cmdBX
@@ -52,3 +52,7 @@ EXPORTS
 	pkflt_to_strA
 	pkflt_to_strW
 	
+	canLogInit
+	canLogCtrl
+
+

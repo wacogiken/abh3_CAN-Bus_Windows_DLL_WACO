@@ -93,6 +93,7 @@
     <ClInclude Include="Crc.h" />
     <ClInclude Include="EnumComPortEx.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Logctrl.h" />
     <ClInclude Include="PackFloat.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="typedef.h" />
