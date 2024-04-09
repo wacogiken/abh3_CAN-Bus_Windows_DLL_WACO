@@ -11,6 +11,10 @@
 //	CAN回線を閉じた時に、Close関数を呼び出す
 //	CAN回線への送受信時、Add関数を呼び出す
 //
+//保存仕様
+//	指定したフォルダの下に、開始時の日付と時間でフォルダを作る
+//	中に入るファイル名は、6桁の数値.txtとなる
+//
 //機能設定
 //	以下の設定は、Open関数を呼び出す前に行う必要が有る事に注意
 //		Control関数で、有効/無効、ログ対象を制御する
@@ -120,8 +124,23 @@ public:
 				//2つ目（又はそれ以降）のファイルとして扱う
 				++m_var.nFileCount;
 				}
-			wchar_t* pFullname = new wchar_t[2048]();
-			wsprintf(pFullname,L"%s\\%04d%02d%02d-%02d%02d%02d-%06d.txt"
+			//バッファ
+			wchar_t* pTmpBuffer = new wchar_t[2048]();
+
+			//フォルダ名構築
+			wsprintf(pTmpBuffer,L"%s\\%04d%02d%02d-%02d%02d%02d"
+				,m_var.logFolder
+				,m_var.firstTime.sysTime.wYear
+				,m_var.firstTime.sysTime.wMonth
+				,m_var.firstTime.sysTime.wDay
+				,m_var.firstTime.sysTime.wHour
+				,m_var.firstTime.sysTime.wMinute
+				,m_var.firstTime.sysTime.wSecond
+				);
+			::CreateDirectoryW(pTmpBuffer,NULL);
+
+			//ファイル名構築
+			wsprintf(pTmpBuffer,L"%s\\%04d%02d%02d-%02d%02d%02d\\%06d.txt"
 				,m_var.logFolder
 				,m_var.firstTime.sysTime.wYear
 				,m_var.firstTime.sysTime.wMonth
@@ -134,8 +153,8 @@ public:
 
 			//ファイルを開く
 			FILE* fp = NULL;
-			::_wfopen_s(&fp,pFullname,L"wb");
-			delete [] pFullname;
+			::_wfopen_s(&fp,pTmpBuffer,L"wb");
+			delete [] pTmpBuffer;
 
 			//
 			if(fp == NULL)
@@ -175,8 +194,8 @@ public:
 		//	ログ機能の制御を行う
 		//パラメータ
 		//	nCmd	bit0..1でログ機能有効（ファイルを開く前に要設定）
-		//			bit1..1で送信ログを記録しない
-		//			bit2..1で受信ログを記録しない
+		//			bit1..1で送信ログを記録しない（受信のみとなる）
+		//			bit2..1で受信ログを記録しない（送信のみとなる）
 		//戻り値
 		//	常に0が戻ります
 		//
